@@ -1,0 +1,1 @@
+# Configuration module for camera entry/exit tracker 
