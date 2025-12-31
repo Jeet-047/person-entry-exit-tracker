@@ -39,7 +39,7 @@ def main():
 
         frame_idx += 1
         current_time = START_TIME + timedelta(seconds=(frame_idx / fps))
-        timestamp = current_time.strftime("%H:%M:%S")
+        timestamp = current_time.strftime("%H-%M-%S")
 
         # Add frame to buffer
         frame_buffer.append(frame.copy())
@@ -57,14 +57,14 @@ def main():
             person_crop = frame[y1:y2, x1:x2]
             
             # Save temporary image
-            temp_img_name = f"{SAVE_DIR}/temp_{timestamp}.jpg"
+            temp_img_name = f"{SAVE_DIR}/temp_{timestamp}.png"
             cv2.imwrite(temp_img_name, person_crop)
 
             # Track person through frame buffer
             status = reid_tracker.track_person(person_crop, frame_buffer, fps, person_detector)
             
             # Save final image
-            final_img_name = f"{SAVE_DIR}/{status}/person_{timestamp}.jpg"
+            final_img_name = f"{SAVE_DIR}/{status}/person_{timestamp}.png"
             shutil.move(temp_img_name, final_img_name)
             
             # Log the event

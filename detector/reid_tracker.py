@@ -2,29 +2,26 @@ import cv2
 import torch
 import numpy as np
 from PIL import Image
+import torchreid
 from torchvision import transforms
-from models.fusion_reid import FusionReID
-from models.cnn_backbone import build_resnet50
-from models.transformer_backbone import build_vit_b16
-from config.settings import DEVICE, DIM, NUM_HTM_LAYERS
+from config.settings import DEVICE, MODEL_NAME, EBD_SIMILARITY_THRESHOLD
 
 class ReIDTracker:
     def __init__(self):
-        """Initialize the ReID tracker with FusionReID model"""
-        print("Initializing FusionReID model...")
-        cnn_backbone = build_resnet50()
-        transformer_backbone = build_vit_b16()
-        self.reid_model = FusionReID(
-            cnn_backbone=cnn_backbone,
-            transformer_backbone=transformer_backbone,
-            dim=DIM,
-            num_htm_layers=NUM_HTM_LAYERS
+        """Initialize the ReID tracker with ReID model"""
+        print("Initializing ResNet50 model...")
+        self.reid_model = torchreid.models.build_model(
+            name=MODEL_NAME,
+            num_classes=0,
+            pretrained=True
         ).to(DEVICE).eval()
         
         self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((256, 128)),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], 
+                std=[0.229, 0.224, 0.225])
         ])
     
     def get_embedding(self, crop):
@@ -33,8 +30,8 @@ class ReIDTracker:
         crop_pil = Image.fromarray(crop_rgb)
         tensor = self.transform(crop_pil).unsqueeze(0).to(DEVICE)
         with torch.no_grad():
-            emb = self.reid_model(tensor).cpu().numpy()[0]
-        return emb / (np.linalg.norm(emb) + 1e-6)
+            emb = self.reid_model(tensor).cpu().detach().numpy()[0]
+        return emb
     
     def cosine_similarity(self, a, b):
         """Compute cosine similarity between two embeddings"""
@@ -42,7 +39,7 @@ class ReIDTracker:
     
     def get_adaptive_threshold(self, time_gap_seconds):
         """Get adaptive threshold based on time gap"""
-        base_threshold = 0.85
+        base_threshold = EBD_SIMILARITY_THRESHOLD
         if time_gap_seconds < 1.0:
             return base_threshold
         elif time_gap_seconds < 5.0:
@@ -71,5 +68,5 @@ class ReIDTracker:
                     break
             else:
                 not_match_count += 1
-        
+        print(f"Match count: {match_count}, Not match count: {not_match_count}")
         return "exit" if match_count > not_match_count else "entry" 
